@@ -20,6 +20,7 @@ test("png with Sanctuary", function (t) {
   readimage(buf, function (err, image) {
     if (err) {
       t.fail(err)
+      return t.end ()
     }
     t.equals(image.height, 458, "yep, height")
     t.equals(image.width, 270, "yep, width")
@@ -34,6 +35,7 @@ test("1 chan png with Sanctuary", function (t) {
   readimage(buf, function (err, image) {
     if (err) {
       t.fail(err)
+      return t.end ()
     }
     t.equals(image.height, 1024, "yep, height")
     t.equals(image.width, 1024, "yep, width")
@@ -48,6 +50,7 @@ test.skip("2 chan png with Sanctuary", function (t) {
   readimage(buf, function (err, image) {
     if (err) {
       t.fail(err)
+      return t.end ()
     }
     t.equals(image.height, 458, "yep, height")
     t.equals(image.width, 270, "yep, width")
@@ -62,6 +65,7 @@ test("3 chan png with Sanctuary", function (t) {
   readimage(buf, function (err, image) {
     if (err) {
       t.fail(err)
+      return t.end ()
     }
     t.equals(image.height, 16, "yep, height")
     t.equals(image.width, 16, "yep, width")
@@ -80,6 +84,7 @@ test("jpg with Sanctuary", function (t) {
   readimage(buf, function (err, image) {
     if (err) {
       t.fail(err)
+      return t.end ()
     }
     t.equals(image.height, 640, "yep, height")
     t.equals(image.width, 640, "yep, width")
@@ -95,6 +100,7 @@ test("gif", function (t) {
   readimage(buf, function (err, image) {
     if (err) {
       t.fail(err)
+      return t.end ()
     }
     t.equals(image.height, 101, "yep, height")
     t.equals(image.width, 135, "yep, width")

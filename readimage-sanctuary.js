@@ -1,5 +1,7 @@
 "use strict";
 
+process.env.NODE_ENV = 'production'
+
 const S           = require ("sanctuary")
 const jpeg        = require ("jpeg-js")
 const png         = require ("pngparse")
@@ -11,11 +13,59 @@ module.exports = read
 module.exports.Image = Image
 module.exports.Frame = Frame
 
+const trace = msg => x => (console.debug (`[${msg}]`, x), x)
 const gifHeader = Buffer.from ("GIF8")
 const pngHeader = Buffer.from ([137, 80, 78, 71])
 const jpgHeader = Buffer.from ([255, 216, 255])
 
-function read(buffer, callback) {
+// firstFourBytes :: Buffer -> Maybe Buffer
+const firstFourBytes = S.pipe ([
+  Array.from,
+  S.take (4),
+  S.map (Buffer.from),
+])
+
+// firstThreeBytes :: Buffer -> Maybe Buffer
+const firstThreeBytes = S.pipe ([
+  Array.from,
+  S.take (3),
+  S.map (Buffer.from),
+])
+
+const bufferEqual_ = S.curry2 (bufferEqual)
+
+const is = S.pipe ([
+  bufferEqual_,
+  S.maybe (false)
+])
+
+const isGif = S.compose (is (gifHeader))
+                        (firstFourBytes) // (S.take (4))
+
+const isPng = S.compose (is (pngHeader))
+                        (firstFourBytes) // (S.take (4))
+
+const isJpg = S.compose (is (jpgHeader))
+                        (firstThreeBytes) // (S.take (3))
+
+const parseGif2 = S.flip (S.curry2 (parseGif))
+const parsePng2 = S.flip (S.curry2 (parsePng))
+const parseJpg2 = S.flip (S.curry2 (parseJpg))
+
+const read2 = cb => S.ifElse (isGif)
+                             (parseGif2 (cb))
+                             (S.ifElse (isPng)
+                                       (parsePng2 (cb))
+                                       (S.ifElse (isJpg)
+                                                 (parseJpg2 (cb))
+                                                 (_ => cb (new Error ('Image format is not recognized or supported')))))
+
+
+function read (buffer, cb) {
+  return read2 (cb) (buffer)
+}
+
+function readOld(buffer, callback) {
   // detect type, convert to format
   var head = buffer.slice(0, 4)
   if (bufferEqual(head, gifHeader)) {
