@@ -8,7 +8,7 @@ readimage
 > ===============================================
 
 
-Preliminary results from running _t.js_ 3bea5ab
+Preliminary results from running _t.js_ [3bea5ab](https://github.com/dotnetCarpenter/readimage/commit/3bea5ab660cd8507dd91d15f20399ed768baefd1)
 
 Without type checking (`process.env.NODE_ENV = 'production'`):
 
