@@ -1,6 +1,6 @@
 {
   "name": "readimage",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Read an image (jpg, png, gif) into memory in the same format.",
   "main": "readimage.js",
   "directories": {
@@ -21,21 +21,21 @@
   "author": "Bryce B. Baril",
   "license": "MIT",
   "dependencies": {
-    "buffer-equal": "0.0.1",
+    "buffer-equal": "1.0.0",
     "isnumber": "^1.0.0",
-    "jpeg-js": "0.0.4",
+    "jpeg-js": "0.4.3",
     "omggif": "^1.0.5",
     "pngparse": "^2.0.1"
   },
   "devDependencies": {
-    "tape": "^2.14.0"
+    "tape": "^5.3.1"
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:revisitors/readimage.git"
+    "url": "git@github.com:dotnetcarpenter/readimage.git"
   },
   "bugs": {
-    "url": "https://github.com/revisitors/readimage/issues"
+    "url": "https://github.com/dotnetcarpenter/readimage/issues"
   },
-  "homepage": "https://github.com/revisitors/readimage"
+  "homepage": "https://github.com/dotnetcarpenter/readimage"
 }
