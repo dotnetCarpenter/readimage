@@ -58,40 +58,58 @@ const isPng = S.compose (isBuffer (pngHeader))
 const isJpg = S.compose (isBuffer (jpgHeader))
                         (firstThreeBytes) // (S.take (3))
 
-const parseGif2 = S.flip (S.curry2 (parseGif))
 const parsePng2 = S.flip (S.curry2 (parsePng))
 const parseJpg2 = S.flip (S.curry2 (parseJpg))
 
+const gifReader = S.encase (buffer => new gif.GifReader (buffer))
+const image = height => S.encase (width => new Image (height, width))
+const invertNum = from => S.compose (S.negate) (S.sub (from))
+const getNumberOfFrames = gif => gif.numFrames ()
+
+const parseGif = cb => S.pipe ([
+  gifReader,
+  S.map (S.lift3 (imagePair => fromZero =>
+    S.unfoldr (n => {
+      let boundedN = fromZero (n)
+      if (n === 0) return S.Nothing
+
+      let gif = S.fst (imagePair)
+      let eitherImage = S.snd (imagePair)
+      let frameInfo = gif.frameInfo (boundedN)
+      let rgba = Buffer.allocUnsafe (frameInfo.width * frameInfo.height * 4)
+
+      // can throw if wrong boundedN
+      gif.decodeAndBlitFrameRGBA (boundedN, rgba)
+
+      S.map (image => { image.addFrame (rgba, frameInfo.delay * 10) })
+            (eitherImage)
+
+      return S.Just (S.Pair (eitherImage) (--n))
+    }))
+    (gif => S.Pair (gif) (image (gif.height) (gif.width)))
+    (S.compose (invertNum) (getNumberOfFrames))
+    (getNumberOfFrames)),
+  // trace ('parseGif3'),
+  // Just (Either a)
+  S.either
+    (cb)
+    (S.compose (S.maybe (new Error ('Not sure ^-^'))
+                        (S.either (cb)
+                                  (image => cb (null, image))))
+               (S.head))
+])
+
 const read2 = cb =>
   S.ifElse (isGif)
-    (parseGif2 (cb))
+    (parseGif (cb))
     (S.ifElse (isPng)
               (parsePng2 (cb))
               (S.ifElse (isJpg)
                         (parseJpg2 (cb))
                         (_ => cb (new Error ('Image format is not recognized or supported')))))
 
-
 function read (buffer, cb) {
   return read2 (cb) (buffer)
-}
-
-function parseGif(buffer, callback) {
-  var image
-  try {
-    image = new gif.GifReader(buffer)
-  } catch (e) {
-    return callback(e)
-  }
-  var img = new Image(image.height, image.width)
-  var frameCount = image.numFrames()
-  for (var i = 0; i < frameCount; i++) {
-    var frameInfo = image.frameInfo(i)
-    var rgba = Buffer.allocUnsafe (frameInfo.width * frameInfo.height * 4)
-    image.decodeAndBlitFrameRGBA(i, rgba)
-    img.addFrame(rgba, frameInfo.delay * 10)
-  }
-  return callback(null, img)
 }
 
 function parsePng(buffer, callback) {
