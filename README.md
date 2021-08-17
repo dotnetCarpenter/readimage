@@ -1,7 +1,11 @@
 readimage
-=====
+=========
 
-[![NPM](https://nodei.co/npm/readimage.png)](https://nodei.co/npm/readimage/)
+> ===============================================
+>
+> Fork of https://github.com/revisitors/readimage
+>
+> ===============================================
 
 Read an image into memory converting from whatever format it is in to a consistent set of RGBA frames independent on input format.
 
