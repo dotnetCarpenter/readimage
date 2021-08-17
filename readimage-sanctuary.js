@@ -7,7 +7,6 @@ const jpeg        = require ("jpeg-js")
 const png         = require ("pngparse")
 const gif         = require ("omggif")
 const bufferEqual = require ("buffer-equal")
-const isnumber    = require ("isnumber")
 
 module.exports = read
 module.exports.Image = Image
@@ -17,6 +16,14 @@ const trace = msg => x => (console.debug (`[${msg}]`, x), x)
 const gifHeader = Buffer.from ("GIF8")
 const pngHeader = Buffer.from ([137, 80, 78, 71])
 const jpgHeader = Buffer.from ([255, 216, 255])
+
+const isNumber =
+  S.compose
+    (S.lift2
+      (S.and)
+      (S.complement (Number.isNaN))
+      (Number.isFinite))
+    (Number.parseFloat)
 
 // firstFourBytes :: Buffer -> Maybe Buffer
 const firstFourBytes = S.pipe ([
@@ -63,21 +70,6 @@ const read2 = cb => S.ifElse (isGif)
 
 function read (buffer, cb) {
   return read2 (cb) (buffer)
-}
-
-function readOld(buffer, callback) {
-  // detect type, convert to format
-  var head = buffer.slice(0, 4)
-  if (bufferEqual(head, gifHeader)) {
-    return parseGif(buffer, callback)
-  }
-  if (bufferEqual(head, pngHeader)) {
-    return parsePng(buffer, callback)
-  }
-  if (bufferEqual(head.slice (0, 3), jpgHeader)) {
-    return parseJpg(buffer, callback)
-  }
-  throw new Error ('Image format is not recognized or supported')
 }
 
 function parseGif(buffer, callback) {
@@ -152,7 +144,7 @@ function Image(height, width) {
   if (!(this instanceof Image)) {
     return new Image(height, width)
   }
-  if (!isnumber(height) || !isnumber(width)) {
+  if (!isNumber(height) || !isNumber(width)) {
     throw new Error("Image height and width must be numbers.")
   }
   this.height = +height

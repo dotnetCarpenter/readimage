@@ -24,7 +24,6 @@
   "dependencies": {
     "buffer-equal": "1.0.0",
     "fluture": "^14.0.0",
-    "isnumber": "^1.0.0",
     "jpeg-js": "0.4.3",
     "omggif": "^1.0.5",
     "pngparse": "^2.0.1",
