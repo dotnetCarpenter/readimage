@@ -17,6 +17,7 @@ const gifHeader = Buffer.from ("GIF8")
 const pngHeader = Buffer.from ([137, 80, 78, 71])
 const jpgHeader = Buffer.from ([255, 216, 255])
 
+// isNumber :: Any -> Boolean
 const isNumber =
   S.compose
     (S.lift2
@@ -39,33 +40,36 @@ const firstThreeBytes = S.pipe ([
   S.map (Buffer.from),
 ])
 
+// bufferEqual_ :: Buffer -> Buffer -> Boolean
 const bufferEqual_ = S.curry2 (bufferEqual)
 
-const is = S.pipe ([
+// isBuffer :: Buffer -> Maybe Buffer -> Boolean
+const isBuffer = S.pipe ([
   bufferEqual_,
   S.maybe (false)
 ])
 
-const isGif = S.compose (is (gifHeader))
+const isGif = S.compose (isBuffer (gifHeader))
                         (firstFourBytes) // (S.take (4))
 
-const isPng = S.compose (is (pngHeader))
+const isPng = S.compose (isBuffer (pngHeader))
                         (firstFourBytes) // (S.take (4))
 
-const isJpg = S.compose (is (jpgHeader))
+const isJpg = S.compose (isBuffer (jpgHeader))
                         (firstThreeBytes) // (S.take (3))
 
 const parseGif2 = S.flip (S.curry2 (parseGif))
 const parsePng2 = S.flip (S.curry2 (parsePng))
 const parseJpg2 = S.flip (S.curry2 (parseJpg))
 
-const read2 = cb => S.ifElse (isGif)
-                             (parseGif2 (cb))
-                             (S.ifElse (isPng)
-                                       (parsePng2 (cb))
-                                       (S.ifElse (isJpg)
-                                                 (parseJpg2 (cb))
-                                                 (_ => cb (new Error ('Image format is not recognized or supported')))))
+const read2 = cb =>
+  S.ifElse (isGif)
+    (parseGif2 (cb))
+    (S.ifElse (isPng)
+              (parsePng2 (cb))
+              (S.ifElse (isJpg)
+                        (parseJpg2 (cb))
+                        (_ => cb (new Error ('Image format is not recognized or supported')))))
 
 
 function read (buffer, cb) {
