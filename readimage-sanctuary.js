@@ -63,6 +63,17 @@ const parseJpg2 = S.flip (S.curry2 (parseJpg))
 
 const gifReader = S.encase (buffer => new gif.GifReader (buffer))
 const image = height => S.encase (width => new Image (height, width))
+
+// decodeAndBlitFrameRGBA :: Gif -> Buffer -> Number -> Either Error Undefined
+const decodeAndBlitFrameRGBA = gif => buffer => S.encase (S.flip (S.curry2 (gif.decodeAndBlitFrameRGBA.bind (gif))) (buffer))
+
+// gifRGBA :: Gif -> Buffer -> Number -> Either Error Buffer
+const gifRGBA = gif => buffer => S.pipe ([
+  decodeAndBlitFrameRGBA (gif) (buffer),
+  S.when (S.isRight) (S.map (S.K (buffer))),
+])
+
+//  (frameNumber, buffer), buffer)
 const invertNum = from => S.compose (S.negate) (S.sub (from))
 const getNumberOfFrames = gif => gif.numFrames ()
 
@@ -76,12 +87,14 @@ const parseGif = cb => S.pipe ([
       let gif = S.fst (imagePair)
       let eitherImage = S.snd (imagePair)
       let frameInfo = gif.frameInfo (boundedN)
-      let rgba = Buffer.allocUnsafe (frameInfo.width * frameInfo.height * 4)
+      let rgba = gifRGBA (gif) (Buffer.allocUnsafe (frameInfo.width * frameInfo.height * 4)) (boundedN)
 
-      // can throw if wrong boundedN
-      gif.decodeAndBlitFrameRGBA (boundedN, rgba)
+      if (S.isLeft (rgba)) {
+        console.error (rgba)
+        return S.Nothing
+      }
 
-      S.map (image => { image.addFrame (rgba, frameInfo.delay * 10) })
+      S.map (image => { image.addFrame (rgba.value, frameInfo.delay * 10) })
             (eitherImage)
 
       return S.Just (S.Pair (eitherImage) (--n))
