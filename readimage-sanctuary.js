@@ -70,7 +70,10 @@ const isJpg = S.compose (isBuffer (jpgHeader))
 const parsePng2 = S.flip (S.curry2 (parsePng))
 const parseJpg2 = S.flip (S.curry2 (parseJpg))
 
+// gifReader :: Buffer -> Either (Error Gif)
 const gifReader = S.encase (buffer => new gif.GifReader (buffer))
+
+// image :: Number -> Number -> Either (Error Image)
 const image = height => S.encase (width => new Image (height, width))
 
 // IMPURE_decodeAndBlitFrameRGBA :: Gif -> Buffer -> Number -> Either Error Undefined
@@ -82,7 +85,7 @@ const IMPURE_gifRgba = gif => buffer => S.pipe ([
   S.map (S.K (buffer)),
 ])
 
-// getFrameInfo :: Gif -> Either (Error Pair (FrameInfo) (Number))
+// getFrameInfo :: Gif -> Number -> Either (Error Pair (FrameInfo) (Number))
 const getFrameInfo = gif => frameNumber => {
   let frameInfo
   try {
@@ -94,8 +97,10 @@ const getFrameInfo = gif => frameNumber => {
   // S.encase (gif.frameInfo.bind (gif)) (frameNumber)
 }
 
+// allocRgbaBuffer :: Number -> Number -> Buffer
 const allocRgbaBuffer = width => height => Buffer.allocUnsafe (width * height * 4)
 
+// parseGif :: ((a, b) -> c) -> Buffer -> c
 const parseGif = cb => S.pipe ([
   gifReader,
   // Either (Gif)
@@ -106,8 +111,10 @@ const parseGif = cb => S.pipe ([
   S.map (S.pair (eitherImage => gif => {
     if (S.isLeft (eitherImage)) return eitherImage
 
+    // TODO: do something about frameNumber
     let frameNumber = 0
     return S.pipe ([
+      // TODO: if `getFrameInfo` returns Maybe (Pair), we don't need `S.eitherToMaybe`
       S.unfoldr (n => S.eitherToMaybe (getFrameInfo (gif) (n))),
       // Array (FrameInfo)
 
