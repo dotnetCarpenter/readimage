@@ -135,7 +135,7 @@ const parseGif = cb => S.pipe ([
       S.ifElse (S.all (S.isRight))
                (S.K (eitherImage))
                (S.compose (errors => S.Left (new AggregateError (errors))) (S.lefts)),
-      // Left (AggregateError) | Either (Image)
+      // Left (AggregateError) | Right (Image)
     ])
     (0)
   })),
