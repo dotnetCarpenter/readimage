@@ -79,7 +79,7 @@ const decodeAndBlitFrameRGBA = gif => buffer => S.encase (S.flip (S.curry2 (gif.
 // gifRgba :: Gif -> Buffer -> Number -> Either Error Buffer
 const gifRgba = gif => buffer => S.pipe ([
   decodeAndBlitFrameRGBA (gif) (buffer),
-  S.when (S.isRight) (S.map (S.K (buffer))),
+  S.map (S.K (buffer)),
 ])
 
 // getFrameInfo :: Gif -> Either (Error Pair (FrameInfo) (Number))
@@ -116,15 +116,18 @@ const parseGif = cb => S.pipe ([
       // Array (Pair (Number Buffer))
 
       S.map (S.map (buffer => gifRgba (gif) (buffer) (frameNumber++))),
-      // Array (Pair (Number Either (Buffer)))
+      // Array (Pair (Number Either (Error Buffer)))
+
 
       S.map (S.sequence (S.Either)),
-      // Array (Either (Pair (Number Buffer)))
+      // Array (Either (Error Pair (Number Buffer)))
 
       S.map (S.map (S.pair (frameDelay => rgba => eitherImage.value.addFrame (rgba, frameDelay * 10)))),
-      // Array (Either (Number))
+      // Array (Either (Error Number))
 
-      S.K (eitherImage)
+      // TODO: deal with Array (Left (Error))
+      S.K (eitherImage),
+      // trace ('gifRgba'),
     ])
     (0)
   })),
