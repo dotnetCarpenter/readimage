@@ -12,7 +12,16 @@ module.exports = read
 module.exports.Image = Image
 module.exports.Frame = Frame
 
-const trace = msg => x => (console.debug (`[${msg}]`, x), x)
+const trace = msg => x => {
+  let output
+  if (Array.isArray (x.value) && x.value[0] instanceof Buffer) {
+    output = S.map (S.map (S.K ('<Buffer>'))) (x)
+  }
+  console.debug (`[${msg}]`, output || x)
+
+  return x
+}
+
 const gifHeader = Buffer.from ("GIF8")
 const pngHeader = Buffer.from ([137, 80, 78, 71])
 const jpgHeader = Buffer.from ([255, 216, 255])
@@ -67,49 +76,65 @@ const image = height => S.encase (width => new Image (height, width))
 // decodeAndBlitFrameRGBA :: Gif -> Buffer -> Number -> Either Error Undefined
 const decodeAndBlitFrameRGBA = gif => buffer => S.encase (S.flip (S.curry2 (gif.decodeAndBlitFrameRGBA.bind (gif))) (buffer))
 
-// gifRGBA :: Gif -> Buffer -> Number -> Either Error Buffer
-const gifRGBA = gif => buffer => S.pipe ([
+// gifRgba :: Gif -> Buffer -> Number -> Either Error Buffer
+const gifRgba = gif => buffer => S.pipe ([
   decodeAndBlitFrameRGBA (gif) (buffer),
   S.when (S.isRight) (S.map (S.K (buffer))),
 ])
 
-//  (frameNumber, buffer), buffer)
-const invertNum = from => S.compose (S.negate) (S.sub (from))
-const getNumberOfFrames = gif => gif.numFrames ()
+// getFrameInfo :: Gif -> Either (Error Pair (FrameInfo) (Number))
+const getFrameInfo = gif => frameNumber => {
+  let frameInfo
+  try {
+    frameInfo = gif.frameInfo (frameNumber)
+  } catch (error) {
+    return S.Left (error)
+  }
+  return S.Right (S.Pair (frameInfo) (++frameNumber))
+  // S.encase (gif.frameInfo.bind (gif)) (frameNumber)
+}
+
+const allocRgbaBuffer = width => height => Buffer.allocUnsafe (width * height * 4)
 
 const parseGif = cb => S.pipe ([
   gifReader,
-  S.map (S.lift3 (imagePair => fromZero =>
-    S.unfoldr (n => {
-      let boundedN = fromZero (n)
-      if (n === 0) return S.Nothing
+  // Either (Gif)
 
-      let gif = S.fst (imagePair)
-      let eitherImage = S.snd (imagePair)
-      let frameInfo = gif.frameInfo (boundedN)
-      let rgba = gifRGBA (gif) (Buffer.allocUnsafe (frameInfo.width * frameInfo.height * 4)) (boundedN)
+  S.map (gif => S.Pair (image (gif.height) (gif.width)) (gif)),
+  // Either (Pair (Either (Image) Gif))
 
-      if (S.isLeft (rgba)) {
-        console.error (rgba)
-        return S.Nothing
-      }
+  S.map (S.pair (eitherImage => gif => {
+    if (S.isLeft (eitherImage)) return eitherImage
 
-      S.map (image => { image.addFrame (rgba.value, frameInfo.delay * 10) })
-            (eitherImage)
+    let frameNumber = 0
+    return S.pipe ([
+      S.unfoldr (n => S.eitherToMaybe (getFrameInfo (gif) (n))),
+      // Array (FrameInfo)
 
-      return S.Just (S.Pair (eitherImage) (--n))
-    }))
-    (gif => S.Pair (gif) (image (gif.height) (gif.width)))
-    (S.compose (invertNum) (getNumberOfFrames))
-    (getNumberOfFrames)),
-  // trace ('parseGif3'),
-  // Just (Either a)
-  S.either
-    (cb)
-    (S.compose (S.maybe (new Error ('Not sure ^-^'))
-                        (S.either (cb)
-                                  (image => cb (null, image))))
-               (S.head))
+      S.map (frameInfo => S.Pair (frameInfo.delay)
+                                 (allocRgbaBuffer (frameInfo.width) (frameInfo.height))),
+      // Array (Pair (Number Buffer))
+
+      S.map (S.map (buffer => gifRgba (gif) (buffer) (frameNumber++))),
+      // Array (Pair (Number Either (Buffer)))
+
+      S.map (S.sequence (S.Either)),
+      // Array (Either (Pair (Number Buffer)))
+
+      S.map (S.map (S.pair (frameDelay => rgba => eitherImage.value.addFrame (rgba, frameDelay * 10)))),
+      // Array (Either (Number))
+
+      S.K (eitherImage)
+    ])
+    (0)
+  })),
+  // Either (Either (Image))
+
+  S.join,
+  // Either (Image)
+
+  S.either (cb) (image => cb (null, image)),
+  // Any
 ])
 
 const read2 = cb =>
