@@ -14,7 +14,14 @@ function testGif () {
 
 	readimage(buf, function (err, image) {
 		if (err) {
-			console.error (err)
+			if (err instanceof AggregateError) {
+				console.log(err.message); // ""
+				console.log(err.name);    // "AggregateError"
+				console.log(err.errors);  // [ Error: "some error" ]
+			} else {
+				console.error (err)
+			}
+
 			return
 		}
 

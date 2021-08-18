@@ -73,12 +73,12 @@ const parseJpg2 = S.flip (S.curry2 (parseJpg))
 const gifReader = S.encase (buffer => new gif.GifReader (buffer))
 const image = height => S.encase (width => new Image (height, width))
 
-// decodeAndBlitFrameRGBA :: Gif -> Buffer -> Number -> Either Error Undefined
-const decodeAndBlitFrameRGBA = gif => buffer => S.encase (S.flip (S.curry2 (gif.decodeAndBlitFrameRGBA.bind (gif))) (buffer))
+// IMPURE_decodeAndBlitFrameRGBA :: Gif -> Buffer -> Number -> Either Error Undefined
+const IMPURE_decodeAndBlitFrameRGBA = gif => buffer => S.encase (S.flip (S.curry2 (gif.decodeAndBlitFrameRGBA.bind (gif))) (buffer))
 
-// gifRgba :: Gif -> Buffer -> Number -> Either Error Buffer
-const gifRgba = gif => buffer => S.pipe ([
-  decodeAndBlitFrameRGBA (gif) (buffer),
+// IMPURE_gifRgba :: Gif -> Buffer -> Number -> Either Error Buffer
+const IMPURE_gifRgba = gif => buffer => S.pipe ([
+  IMPURE_decodeAndBlitFrameRGBA (gif) (buffer),
   S.map (S.K (buffer)),
 ])
 
@@ -115,26 +115,27 @@ const parseGif = cb => S.pipe ([
                                  (allocRgbaBuffer (frameInfo.width) (frameInfo.height))),
       // Array (Pair (Number Buffer))
 
-      S.map (S.map (buffer => gifRgba (gif) (buffer) (frameNumber++))),
+      S.map (S.map (buffer => IMPURE_gifRgba (gif) (buffer) (frameNumber++))),
       // Array (Pair (Number Either (Error Buffer)))
-
 
       S.map (S.sequence (S.Either)),
       // Array (Either (Error Pair (Number Buffer)))
 
+      // safe as long as eitherImage error case has been handled
       S.map (S.map (S.pair (frameDelay => rgba => eitherImage.value.addFrame (rgba, frameDelay * 10)))),
       // Array (Either (Error Number))
 
-      // TODO: deal with Array (Left (Error))
-      S.K (eitherImage),
-      // trace ('gifRgba'),
+      S.ifElse (S.all (S.isRight))
+               (S.K (eitherImage))
+               (S.compose (errors => S.Left (new AggregateError (errors))) (S.lefts)),
+      // Left (AggregateError) | Either (Image)
     ])
     (0)
   })),
-  // Either (Either (Image))
+  // Either (Error Either (Error Image))
 
   S.join,
-  // Either (Image)
+  // Right (Image) | Left (Error)
 
   S.either (cb) (image => cb (null, image)),
   // Any
