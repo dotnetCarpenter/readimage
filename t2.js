@@ -74,6 +74,11 @@ function main (buffer) {
     S.encase (buffer => (gifReader.decodeAndBlitFrameRGBA (frameNumber, buffer), buffer))
       (Buffer.alloc (frameInfo.height * frameInfo.width * 4));
 
+  //    decodeAndBlitFrameRGBA2 :: GifReader -> Number -> frameInfo -> Buffer
+  const decodeAndBlitFrameRGBA2 = gifReader => frameNumber => frameInfo =>
+    S.encase (buffer => (gifReader.decodeAndBlitFrameRGBA (frameNumber, buffer), buffer))
+      (Buffer.alloc (frameInfo.height * frameInfo.width * 4));
+
   //    IMPURE_addFrame :: FrameInfo -> Buffer -> Image -> Image
   const IMPURE_addFrame = frameInfo => rgbaBuffer => image => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
 
@@ -102,7 +107,7 @@ function main (buffer) {
   const fakeRgbaBuffer = frameNumber => frameNumber < 30
                                           ? S.Right (Buffer.alloc (1))
                                           : S.Left (new Error ("Frame index out of range."));
-
+  //  result4 :: Array Buffer
   let result4 = unfoldr_ (n => {
     let buffer = fakeRgbaBuffer (n)
     return S.isRight (buffer) ? S.map (buf => S.Pair (buf) (n + 1)) (buffer) : buffer
@@ -119,10 +124,14 @@ function main (buffer) {
   const getRgbaBuffer = S.lift3 (decodeAndBlitFrameRGBA)
                                 (gifReader (buffer));
 
+  //    getRgbaBuffer2 :: Either Number -> Either FrameInfo -> Either (Either Buffer)
+  const getRgbaBuffer2 = S.lift3 (decodeAndBlitFrameRGBA2)
+                                (gifReader (buffer));
 
+  const camouflageInnerBuffer = S.map (S.map (showBuffer));
   writeln (result1);
   writeln ();
-  writeln (S.map (S.map (showBuffer)) (result2));
+  writeln (camouflageInnerBuffer (result2));
   writeln ();
   writeln (result3);
   writeln ();
@@ -130,9 +139,12 @@ function main (buffer) {
 
   writeln ();
   writeln (getFrameInfo (S.Right (29)));
-  writeln ();
-  writeln (S.map (showBuffer) (S.join (getRgbaBuffer (getFrameInfo (S.Right (29))) (S.Right (29)))));
 
+  writeln ();
+  writeln (camouflageInnerBuffer (getRgbaBuffer (getFrameInfo (S.Right (29))) (S.Right (29))));
+  writeln ();
+  // (a -> b -> c) -> (a -> b) -> a -> c
+  writeln (camouflageInnerBuffer (S.ap (getRgbaBuffer2) (getFrameInfo) (S.Right (0))));
 
   // S.pipe
   //   ([
