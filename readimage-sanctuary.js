@@ -12,7 +12,7 @@ module.exports = read
 module.exports.Image = Image
 module.exports.Frame = Frame
 
-const trace = msg => x => {
+const debug = msg => x => {
   let output
   if (Array.isArray (x.value) && x.value[0] instanceof Buffer) {
     output = S.map (S.map (S.K ('<Buffer>'))) (x)
@@ -26,30 +26,34 @@ const gifHeader = Buffer.from ("GIF8")
 const pngHeader = Buffer.from ([137, 80, 78, 71])
 const jpgHeader = Buffer.from ([255, 216, 255])
 
-// isNumber :: Any -> Boolean
-const isNumber =
+//    isNumber :: Any -> Boolean
+const isNumber = (
   S.compose
     (S.lift2
       (S.and)
       (S.complement (Number.isNaN))
       (Number.isFinite))
     (Number.parseFloat)
+);
 
-// firstFourBytes :: Buffer -> Maybe Buffer
+//    swap :: Either a b -> Either b a
+const swap = S.either (S.Right) (S.Left);
+
+//    firstFourBytes :: Buffer -> Maybe Buffer
 const firstFourBytes = S.pipe ([
   Array.from,
   S.take (4),
   S.map (Buffer.from),
 ])
 
-// firstThreeBytes :: Buffer -> Maybe Buffer
+//    firstThreeBytes :: Buffer -> Maybe Buffer
 const firstThreeBytes = S.pipe ([
   Array.from,
   S.take (3),
   S.map (Buffer.from),
 ])
 
-// bufferEqual_ :: Buffer -> Buffer -> Boolean
+//    bufferEqual_ :: Buffer -> Buffer -> Boolean
 const bufferEqual_ = S.curry2 (bufferEqual)
 
 // isBuffer :: Buffer -> Maybe Buffer -> Boolean
@@ -67,7 +71,7 @@ const isPng = S.compose (isBuffer (pngHeader))
 const isJpg = S.compose (isBuffer (jpgHeader))
                         (firstThreeBytes) // (S.take (3))
 
-const parsePng2 = S.flip (S.curry2 (parsePng))
+const parsePng2 = S.flip (S.curry2 (parsePngOld))
 const parseJpg2 = S.flip (S.curry2 (parseJpg))
 
 // gifReader :: Buffer -> Either (Error Gif)
@@ -91,31 +95,62 @@ const getFrameInfo = gif => frameNumber => {
   try {
     frameInfo = gif.frameInfo (frameNumber)
   } catch (error) {
-    return S.Left (error)
+    return S.Nothing
   }
-  return S.Right (S.Pair (frameInfo) (++frameNumber))
-  // S.encase (gif.frameInfo.bind (gif)) (frameNumber)
+  return S.Just (S.Pair (frameInfo) (++frameNumber))
+  // S.pipe ([S.encase (gif.frameInfo.bind (gif)), S.eitherToMaybe ]) // (frameNumber)
 }
 
 // allocRgbaBuffer :: Number -> Number -> Buffer
-const allocRgbaBuffer = width => height => Buffer.allocUnsafe (width * height * 4)
+const allocRgbaBuffer = width => height => Buffer.alloc (width * height * 4)
+
+// gifReader          :: Buffer -> Either Gif
+// image              :: Number -> Number -> Either Image
+
+// *getFrameInfo      :: Gif -> Number -> Either FrameInfo ({ delay, width, height })
+// *allocRgbaBuffer   :: Number -> Number -> Buffer
+// *IMPURE_gifRgba    :: Gif -> Buffer -> Number -> Either Buffer
+
+// *Image ~> addFrame :: FrameInfo -> Buffer -> Image -> Undefined
+
+// decodeAndBlitFrameRGBA :: Number -> StrMap Number -> Either Buffer
+const decodeAndBlitFrameRGBA = frameNumber =>
+  S.compose
+    (S.encase (S.curry2 (gif.decodeAndBlitFrameRGBA) (frameNumber)))
+    (({width, height}) => Buffer.alloc (width * height * 4));
+
+// getRgbaBuffer :: Gif -> Number -> Either Buffer
+const getRgbaBuffer = gif => frameNumber => S.pipe ([
+  S.chain (S.encase (gif.frameInfo.bind (gif)) (frameNumber)),
+  S.chain (decodeAndBlitFrameRGBA (frameNumber)),
+]);
+
+
 
 // parseGif :: ((a, b) -> c) -> Buffer -> c
-const parseGif = cb => S.pipe ([
+const parseGif = callback => S.pipe ([
   gifReader,
   // Either (Gif)
+
+  // ?
+  //
+
+
+  // S.map (gif => getRgbaBuffer (gif) (0)),
+  // debug ('one buffer?'),
 
   S.map (gif => S.Pair (image (gif.height) (gif.width)) (gif)),
   // Either (Pair (Either (Image) Gif))
 
+
   S.map (S.pair (eitherImage => gif => {
+
     if (S.isLeft (eitherImage)) return eitherImage
 
-    // TODO: do something about frameNumber
     let frameNumber = 0
     return S.pipe ([
-      // TODO: if `getFrameInfo` returns Maybe (Pair), we don't need `S.eitherToMaybe`
-      S.unfoldr (n => S.eitherToMaybe (getFrameInfo (gif) (n))),
+
+      S.unfoldr (n => getFrameInfo (gif) (n)),
       // Array (FrameInfo)
 
       S.map (frameInfo => S.Pair (frameInfo.delay)
@@ -144,31 +179,37 @@ const parseGif = cb => S.pipe ([
   S.join,
   // Right (Image) | Left (Error)
 
-  S.either (cb) (image => cb (null, image)),
+  S.either (callback) (image => callback (null, image)),
   // Any
-])
+]);
 
-const read2 = cb =>
+const parsePng_ = S.flip (S.curry2 (png.parse))
+const packPng = (err, image) => {
+  if (err) return S.Left (err)
+}
+const parsePng = callback => pngParse (packPang)
+
+const read2 = callback =>
   S.ifElse (isGif)
-    (parseGif (cb))
+    (parseGif (callback))
     (S.ifElse (isPng)
-              (parsePng2 (cb))
+              (parsePng2 (callback))
               (S.ifElse (isJpg)
-                        (parseJpg2 (cb))
-                        (_ => cb (new Error ('Image format is not recognized or supported')))))
+                        (parseJpg2 (callback))
+                        (_ => callback (new Error ('Image format is not recognized or supported')))))
 
-function read (buffer, cb) {
-  return read2 (cb) (buffer)
+function read (buffer, callback) {
+  return read2 (callback) (buffer)
 }
 
-function parsePng(buffer, callback) {
+function parsePngOld(buffer, callback) {
   png.parse(buffer, function (err, image) {
     if (err) {
       return callback(err)
     }
     var rgba = image.data
     if (image.channels === 1) {
-      rgba = Buffer.allocUnsafe (image.height * image.width * 4)
+      rgba = Buffer.alloc (image.height * image.width * 4)
       for (var i = 0; i < image.data.length; i++) {
         var idx = i * 4
         rgba[idx] = rgba[idx + 1] = rgba[idx + 2] = image.data[i]
@@ -176,7 +217,7 @@ function parsePng(buffer, callback) {
       }
     }
     if (image.channels === 2) {
-      rgba = Buffer.allocUnsafe (image.height * image.width * 4)
+      rgba = Buffer.alloc (image.height * image.width * 4)
       for (var i = 0; i < image.data.length; i += 2) {
         var idx = (i/2) * 4
         rgba[idx] = rgba[idx + 1] = rgba[idx + 2] = image.data[i]
@@ -184,7 +225,7 @@ function parsePng(buffer, callback) {
       }
     }
     if (image.channels === 3) {
-      rgba = Buffer.allocUnsafe (image.height * image.width * 4)
+      rgba = Buffer.alloc (image.height * image.width * 4)
       for (var i = 0; i < image.data.length; i += 3) {
         var idx = (i/3) * 4
         rgba[idx] = image.data[i]

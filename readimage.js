@@ -37,7 +37,7 @@ function parseGif(buffer, callback) {
   var frameCount = image.numFrames()
   for (var i = 0; i < frameCount; i++) {
     var frameInfo = image.frameInfo(i)
-    var rgba = Buffer.allocUnsafe (frameInfo.width * frameInfo.height * 4)
+    var rgba = Buffer.alloc (frameInfo.width * frameInfo.height * 4)
     image.decodeAndBlitFrameRGBA(i, rgba)
     img.addFrame(rgba, frameInfo.delay * 10)
   }
@@ -51,7 +51,7 @@ function parsePng(buffer, callback) {
     }
     var rgba = image.data
     if (image.channels === 1) {
-      rgba = Buffer.allocUnsafe (image.height * image.width * 4)
+      rgba = Buffer.alloc (image.height * image.width * 4)
       for (var i = 0; i < image.data.length; i++) {
         var idx = i * 4
         rgba[idx] = rgba[idx + 1] = rgba[idx + 2] = image.data[i]
@@ -59,7 +59,7 @@ function parsePng(buffer, callback) {
       }
     }
     if (image.channels === 2) {
-      rgba = Buffer.allocUnsafe (image.height * image.width * 4)
+      rgba = Buffer.alloc (image.height * image.width * 4)
       for (var i = 0; i < image.data.length; i += 2) {
         var idx = (i/2) * 4
         rgba[idx] = rgba[idx + 1] = rgba[idx + 2] = image.data[i]
@@ -67,7 +67,7 @@ function parsePng(buffer, callback) {
       }
     }
     if (image.channels === 3) {
-      rgba = Buffer.allocUnsafe (image.height * image.width * 4)
+      rgba = Buffer.alloc (image.height * image.width * 4)
       for (var i = 0; i < image.data.length; i += 3) {
         var idx = (i/3) * 4
         rgba[idx] = image.data[i]
