@@ -10,6 +10,15 @@ const fs = require ("fs");
 const showBuffer = buffer => buffer instanceof Buffer ? `<Buffer(${buffer.byteLength})>` : buffer;
 const writeln = console.log;
 
+//    unfoldr_ :: (b -> Either (Pair a b)) -> b -> Array a
+const unfoldr_ = f => x => {
+  const result = [];
+  for (var m = f (x); m.isRight; m = f (m.value.snd)) {
+    result.push (m.value.fst);
+  }
+  return result;
+}
+
 //    isNumber :: Any -> Boolean
 const isNumber = (
   S.compose
@@ -98,11 +107,6 @@ function main (buffer) {
     let buffer = fakeRgbaBuffer (n)
     return S.isRight (buffer) ? S.map (buf => S.Pair (buf) (n + 1)) (buffer) : buffer
   }) (0);
-  // let result4 = unfoldr_ (S.compose (S.unchecked.when (S.isRight) (S.map (n => S.Pair (n) (n + 1)))) (fakeRgbaBuffer)) (0);
-  // let result4 = unfoldr_ (n => S.isRight (fakeRgbaBuffer (n))
-  //                               ? S.Right (S.Pair (n) (n + 1))
-  //                               : n)
-  //                        (0);
 
   //    getFrameInfo :: Either Number -> Either FrameInfo
   const getFrameInfo = S.compose (S.join)
@@ -136,23 +140,4 @@ function main (buffer) {
   //     S.map (unfoldr_ ()),
   //   ])
   //   (buffer)
-}
-
-function unfoldr_ (f) {
-  return x => {
-    const result = [];
-    for (var m = f (x); m.isRight; m = f (m.value.snd)) {
-      result.push (m.value.fst);
-    }
-    return result;
-  };
-}
-function unfoldr(f) {
-  return function(x) {
-    var result = [];
-    for (var m = f (x); m.isJust; m = f (m.value.snd)) {
-      result.push (m.value.fst);
-    }
-    return result;
-  };
 }
