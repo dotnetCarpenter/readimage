@@ -126,7 +126,13 @@ function main (buffer) {
 
   //    getRgbaBuffer2 :: Either Number -> Either FrameInfo -> Either (Either Buffer)
   const getRgbaBuffer2 = S.lift3 (decodeAndBlitFrameRGBA2)
-                                (gifReader (buffer));
+                                 (gifReader (buffer));
+
+  // Won't work since `S.compose` returns an unary function and we need to take 2 functions for `S.lift3`
+  //    getRgbaBuffer3 :: Either Number -> Either FrameInfo -> Either Buffer
+  const getRgbaBuffer3 = S.compose (S.join)
+                                   (S.lift3 (decodeAndBlitFrameRGBA2)
+                                            (gifReader (buffer)));
 
   const camouflageInnerBuffer = S.map (S.map (showBuffer));
   writeln (result1);
@@ -143,8 +149,17 @@ function main (buffer) {
   writeln ();
   writeln (camouflageInnerBuffer (getRgbaBuffer (getFrameInfo (S.Right (29))) (S.Right (29))));
   writeln ();
-  // (a -> b -> c) -> (a -> b) -> a -> c
+  //                                   (a -> b -> c) -> (a -> b) ->     a -> c
   writeln (camouflageInnerBuffer (S.ap (getRgbaBuffer2) (getFrameInfo) (S.Right (0))));
+
+  const lift4 = g => f1 => f2 => f3 => f4 => S.ap (S.ap (S.ap (S.map (g) (f1)) (f2)) (f3)) (f4);
+  writeln (
+    lift4 (a => b => c => d => (a + a + b + b + c + c) / d) (S.Just (1)) (S.Just (2)) (S.Just (3)) (S.Just (4))
+  );
+
+  // writeln ();
+  // writeln (S.map (showBuffer) (S.ap (getRgbaBuffer3) (getFrameInfo) (S.Right (0))));
+
 
   // S.pipe
   //   ([
