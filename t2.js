@@ -115,9 +115,8 @@ function main (buffer) {
 
   //    getFrameInfo :: Either Number -> Either FrameInfo
   const getFrameInfo = S.compose (S.join)
-                                 (S.lift2
-                                   (frameInfo)
-                                   (gifReader (buffer)));
+                                 (S.lift2 (frameInfo)
+                                          (gifReader (buffer)));
 
   //  How do I `S.join` the output of a partially applied function?
   //    getRgbaBuffer :: Either FrameInfo -> Either Number -> Either (Either Buffer)
@@ -128,9 +127,9 @@ function main (buffer) {
   const getRgbaBuffer2 = S.lift3 (decodeAndBlitFrameRGBA2)
                                  (gifReader (buffer));
 
-  // Won't work since `S.compose` returns an unary function and we need to take 2 functions for `S.lift3`
+  // Won't work since `S.compose`/`S.pipe` execute after receiving 1 argument and we need to take 2 functions for `S.lift3`
   //    getRgbaBuffer3 :: Either Number -> Either FrameInfo -> Either Buffer
-  const getRgbaBuffer3 = S.compose (S.join)
+  const getRgbaBuffer3 = S.compose (S.compose (S.join))
                                    (S.lift3 (decodeAndBlitFrameRGBA2)
                                             (gifReader (buffer)));
 
@@ -152,13 +151,13 @@ function main (buffer) {
   //                                   (a -> b -> c) -> (a -> b) ->     a -> c
   writeln (camouflageInnerBuffer (S.ap (getRgbaBuffer2) (getFrameInfo) (S.Right (0))));
 
-  const lift4 = g => f1 => f2 => f3 => f4 => S.ap (S.ap (S.ap (S.map (g) (f1)) (f2)) (f3)) (f4);
-  writeln (
-    lift4 (a => b => c => d => (a + a + b + b + c + c) / d) (S.Just (1)) (S.Just (2)) (S.Just (3)) (S.Just (4))
-  );
+  writeln ();
+  writeln (S.map (showBuffer) (S.ap (getRgbaBuffer3) (getFrameInfo) (S.Right (0))));
 
-  // writeln ();
-  // writeln (S.map (showBuffer) (S.ap (getRgbaBuffer3) (getFrameInfo) (S.Right (0))));
+  // const lift4 = g => f1 => f2 => f3 => f4 => S.ap (S.ap (S.ap (S.map (g) (f1)) (f2)) (f3)) (f4);
+  // writeln (
+  //   lift4 (a => b => c => d => (a + a + b + b + c + c) / d) (S.Just (1)) (S.Just (2)) (S.Just (3)) (S.Just (4))
+  // );
 
 
   // S.pipe
