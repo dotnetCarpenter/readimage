@@ -1,4 +1,4 @@
-// @ts-check
+
 'use strict';
 
 // process.env.NODE_ENV = 'production';
@@ -133,6 +133,16 @@ function main (buffer) {
                                    (S.lift3 (decodeAndBlitFrameRGBA2)
                                             (gifReader (buffer)));
 
+  let result5 = S.unfoldr (n => {
+                            const eitherBuffer = S.ap (getRgbaBuffer3)
+                                                      (getFrameInfo)
+                                                      (S.Right (n));
+                            return S.isRight (eitherBuffer)
+                                           ? S.Just (S.Pair (eitherBuffer) (n + 1))
+                                           : S.Nothing;
+                          })
+                          (0);
+
   const camouflageInnerBuffer = S.map (S.map (showBuffer));
   writeln (result1);
   writeln ();
@@ -158,6 +168,9 @@ function main (buffer) {
   // writeln (
   //   lift4 (a => b => c => d => (a + a + b + b + c + c) / d) (S.Just (1)) (S.Just (2)) (S.Just (3)) (S.Just (4))
   // );
+
+  writeln ();
+  writeln (S.map (S.map (showBuffer)) (result5), result5.length);
 
 
   // S.pipe
