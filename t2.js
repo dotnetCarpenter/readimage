@@ -170,7 +170,7 @@ function main (buffer) {
   // );
 
   writeln ();
-  writeln (S.map (S.map (showBuffer)) (result5), result5.length);
+  writeln (camouflageInnerBuffer (result5), result5.length);
 
 
   // S.pipe
