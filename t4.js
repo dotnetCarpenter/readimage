@@ -102,17 +102,25 @@ function main (buffer) {
   let getFrameInfo_  = getFrameInfo (gifReader_);
   //  result3 :: Right Buffer
   let result3 = S.ap (getRgbaBuffer_) (getFrameInfo_) (frameNumber);
-  return result3
+  // return result3
 
   // (a -> b -> d -> c) -> (a -> b -> d) -> a -> b -> c
-  // (a -> b -> c -> d) -> (a -> b -> c) -> a -> b -> d
+  // (a -> b -> c -> d) -> (a -> b -> c) -> a -> b ->
+
+  //              (a -> b -> c -> d) -> (e -> a) -> (e -> b) -> (e -> c) -> a -> e
+  let r = S.lift3 (a => b => c => `a = ${a} b = ${b} c = ${c}`)
+                  (e => e)
+                  (e => e + 1)
+                  (e => e + 2)
+                  (1);
+  return r
 
   // let gifReader_  = gifReader (buffer);
   // let frameNumber = S.Right (0);
   // let blitBuffer  = S.ap (getRgbaBuffer) (getFrameInfo) (gifReader_);
-  //  result3 :: Buffer
-  // let result3 = S.ap (blitBuffer) (frameNumber);
-  // return result3;
+  //  result4 :: Right Buffer
+  // let result4 = S.ap (blitBuffer) (frameNumber);
+  // return result4;
 
   // ap    ::
   //          (a -> b -> c) -> f a -> f b -> f c

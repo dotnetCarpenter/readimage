@@ -50,8 +50,9 @@ I would really like to combine `getRgbaBuffer` and `getFrameInfo`, so I can call
 
 ```haskell
 dream :: (a -> b -> c -> d) -> (a -> b -> c) -> f a -> f b -> f d
-dream getRgbaBuffer getFrameInfo Either (GifReader) Either (Number) = Either Buffer
+dream getRgbaBuffer <?> getFrameInfo Either (GifReader) Either (Number) = Either Buffer
 ```
+_`<?>` = the dream combinator; its unknown magic power, combine's partially applied function signatures to match up like in a dream._
 
 I have tried too many things to mention here but I am thoroughly confused at this point. I thought that I could simply `lift4 (getRgbaBuffer)` and got a `lift4` implementation but I _simply_ can not follow the flow of the program with so many parameters.
 
@@ -59,5 +60,17 @@ I have tried too many things to mention here but I am thoroughly confused at thi
 //    lift4 :: Apply f => (a -> b -> c -> d -> e) -> f a -> f b -> f c -> f d -> f e
 const lift4 = f => a => b => c => d => S.ap (S.lift3 (f) (a) (b) (c)) (d);
 ```
+
+So far I have not found my _dream_ signature, or figured out how to construct it from a common combinator. I thought `S.lift3` could be close. But the signature for functions surprised me. This signature [is not explicitly mention in the documentation](https://sanctuary.js.org/#lift3) but I found the following to be true:
+
+```js
+//      (a -> b -> c -> d) -> (e -> a) -> (e -> b) -> (e -> c) -> a -> e
+S.lift3 (a => b => c => `a = ${a} b = ${b} c = ${c}`)
+        (e => e)
+        (e => e + 1)
+        (e => e + 2)
+        (1); // <- "a = 1 b = 2 c = 3"
+```
+
 
 PS. I want to use the resulting combination inside a `S.unfoldr` to generate an Array of RGBA blitted (animated) GIF frames.
