@@ -127,7 +127,6 @@ function main (buffer) {
   const getRgbaBuffer2 = S.lift3 (decodeAndBlitFrameRGBA2)
                                  (gifReader (buffer));
 
-  // Won't work since `S.compose`/`S.pipe` execute after receiving 1 argument and we need to take 2 functions for `S.lift3`
   //    getRgbaBuffer3 :: Either Number -> Either FrameInfo -> Either Buffer
   const getRgbaBuffer3 = S.compose (S.compose (S.join))
                                    (S.lift3 (decodeAndBlitFrameRGBA2)
@@ -140,6 +139,36 @@ function main (buffer) {
                             return S.isRight (eitherBuffer)
                                            ? S.Just (S.Pair (eitherBuffer) (n + 1))
                                            : S.Nothing;
+                          })
+                          (0);
+
+
+  let result6 = unfoldr_ (n => {
+                            const eitherBuffer = S.ap (getRgbaBuffer3)
+                                                      (getFrameInfo)
+                                                      (S.Right (n));
+                            return S.isLeft (eitherBuffer)
+                                            ? eitherBuffer
+                                            : S.map (buffer => S.Pair (buffer) (n + 1))
+                                                    (eitherBuffer);
+                         })
+                         (0);
+
+  let blitBuffer = S.ap (getRgbaBuffer3) (getFrameInfo);
+  let result7 = unfoldr_ (n => {
+                            const eitherBuffer = blitBuffer (S.Right (n));
+                            return S.isLeft (eitherBuffer)
+                                            ? eitherBuffer
+                                            : S.map (buffer => S.Pair (buffer) (n + 1))
+                                                    (eitherBuffer);
+                        })
+                        (0);
+
+  let result8 = unfoldr_ (n => {
+                            const eitherBuffer = blitBuffer (S.Right (n));
+                            return S.isLeft (eitherBuffer)
+                                            ? eitherBuffer
+                                            : S.Right (S.Pair (eitherBuffer.value) (n + 1));
                           })
                           (0);
 
@@ -163,15 +192,26 @@ function main (buffer) {
 
   writeln ();
   writeln (S.map (showBuffer) (S.ap (getRgbaBuffer3) (getFrameInfo) (S.Right (0))));
+  writeln ();
 
   // const lift4 = g => f1 => f2 => f3 => f4 => S.ap (S.ap (S.ap (S.map (g) (f1)) (f2)) (f3)) (f4);
-  // writeln (
-  //   lift4 (a => b => c => d => (a + a + b + b + c + c) / d) (S.Just (1)) (S.Just (2)) (S.Just (3)) (S.Just (4))
-  // );
+  const lift4 = g => f1 => f2 => f3 => f4 => S.ap (S.lift3 (g) (f1) (f2) (f3)) (f4);
+  writeln (
+    lift4 (a => b => c => d => (a + a + b + b + c + c) / d) (S.Just (1)) (S.Just (2)) (S.Just (3)) (S.Just (4)),
+    'should be',
+    S.Just (3)
+  );
 
-  writeln ();
-  writeln (camouflageInnerBuffer (result5), result5.length);
+  // writeln ();
+  // writeln (camouflageInnerBuffer (result5), result5.length);
 
+  // writeln ();
+  // writeln (S.map (showBuffer) (result6), result6.length);
+  // writeln ();
+  // writeln (S.map (showBuffer) (result7), result7.length);
+
+  // writeln ();
+  // writeln (S.map (showBuffer) (result8), result8.length);
 
   // S.pipe
   //   ([
