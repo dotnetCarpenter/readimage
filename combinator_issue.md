@@ -42,22 +42,22 @@ let gifReader_     = gifReader (buffer);
 let frameNumber    = S.Right (0);
 let getRgbaBuffer_ = getRgbaBuffer (gifReader_);
 let getFrameInfo_  = getFrameInfo  (gifReader_);
-//  result :: Buffer
+//  result :: Right Buffer
 let result = S.ap (getRgbaBuffer_) (getFrameInfo_) (frameNumber);
 ```
 
-I would really like to combine `getRgbaBuffer` and `getFrameInfo`, so I can call them with two arguments, `Either Buffer` and `Either Number`.
+I would really like to combine `getRgbaBuffer` and `getFrameInfo`, so I can call them with two arguments; `Either GifReader` and `Either Number`.
 
 ```haskell
-dream :: (a -> b -> c -> d) -> (a -> b -> c) -> a -> b -> d
-dream getRgbaBuffer getFrameInfo Either ()  = Buffer
+dream :: (a -> b -> c -> d) -> (a -> b -> c) -> f a -> f b -> f d
+dream getRgbaBuffer getFrameInfo Either (GifReader) Either (Number) = Either Buffer
 ```
 
-I have tried too many things to mention here but I am thoroughly confused at this point. I thought that I could simply `lift4` and got an implemtation for that but I _simply_ can not follow the flow of the program with so many parameters.
+I have tried too many things to mention here but I am thoroughly confused at this point. I thought that I could simply `lift4 (getRgbaBuffer)` and got a `lift4` implementation but I _simply_ can not follow the flow of the program with so many parameters.
 
 ```js
 //    lift4 :: Apply f => (a -> b -> c -> d -> e) -> f a -> f b -> f c -> f d -> f e
 const lift4 = f => a => b => c => d => S.ap (S.lift3 (f) (a) (b) (c)) (d);
 ```
 
-PS. I want to use the resulting combination inside a `S.unfoldr` to generate an Array of RGBA blitted frames.
+PS. I want to use the resulting combination inside a `S.unfoldr` to generate an Array of RGBA blitted (animated) GIF frames.

@@ -100,16 +100,16 @@ function main (buffer) {
   let frameNumber    = S.Right (0);
   let getRgbaBuffer_ = getRgbaBuffer (gifReader_);
   let getFrameInfo_  = getFrameInfo (gifReader_);
-  //  result3 :: Buffer
+  //  result3 :: Right Buffer
   let result3 = S.ap (getRgbaBuffer_) (getFrameInfo_) (frameNumber);
-  return result3;
+  return result3
 
   // (a -> b -> d -> c) -> (a -> b -> d) -> a -> b -> c
   // (a -> b -> c -> d) -> (a -> b -> c) -> a -> b -> d
 
-  let gifReader_  = gifReader (buffer);
-  let frameNumber = S.Right (0);
-  let blitBuffer  = S.ap (getRgbaBuffer) (getFrameInfo) (gifReader_);
+  // let gifReader_  = gifReader (buffer);
+  // let frameNumber = S.Right (0);
+  // let blitBuffer  = S.ap (getRgbaBuffer) (getFrameInfo) (gifReader_);
   //  result3 :: Buffer
   // let result3 = S.ap (blitBuffer) (frameNumber);
   // return result3;
