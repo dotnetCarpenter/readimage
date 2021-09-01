@@ -107,11 +107,11 @@ function main (buffer) {
   // (a -> b -> d -> c) -> (a -> b -> d) -> a -> b -> c
   // (a -> b -> c -> d) -> (a -> b -> c) -> a -> b ->
 
-  //              (a -> b -> c -> d) -> (e -> a) -> (e -> b) -> (e -> c) -> a -> e
+  //              (a -> b -> c -> d) -> (e -> a) -> (e -> b) -> (e -> c) -> e -> d
   let r = S.lift3 (a => b => c => `a = ${a} b = ${b} c = ${c}`)
-                  (e => e)
-                  (e => e + 1)
-                  (e => e + 2)
+                  (e => e)     // -> a
+                  (e => e + 1) // -> b
+                  (e => e + 2) // -> c
                   (1);
   return r
 
