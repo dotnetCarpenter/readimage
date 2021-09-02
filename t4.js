@@ -6,10 +6,10 @@ const S = require ("sanctuary");
 const gif = require ("omggif");
 const fs = require ("fs");
 
-const showBuffer = buffer => buffer instanceof Buffer ? `<Buffer(${buffer.byteLength})>` : buffer;
+const shortenBuffer = buffer => buffer instanceof Buffer ? `<Buffer(${buffer.byteLength})>` : buffer;
 const writeln = (...xs) => (console.log (...xs), xs[0]);
 
-//    unfoldr_ :: (b -> Either (Pair a b)) -> b -> Array a
+//    unfoldr_ :: (b -> Either Pair a b) -> b -> Array a
 const unfoldr_ = f => x => {
   const result = [];
   for (var m = f (x); m.isRight; m = f (m.value.snd)) {
@@ -50,23 +50,25 @@ function Frame(rgba, delay) {
   if (!(this instanceof Frame)) {
     return new Frame(rgba, delay)
   }
-  this.data = showBuffer (rgba) // because seeing a Buffer in the terminal sucks
+  this.data = shortenBuffer (rgba) // because seeing a Buffer in the terminal sucks
   this.delay = delay
 }
 
 const readFile = filename => fs.readFileSync(__dirname + "/" + filename);
 
+//    joinAfter :: Semigroupoid s, Chain m => ???
+const joinAfter = S.compose (S.compose (S.join));
 
-//    gifReader :: Buffer -> Either GifReader
+//    gifReader :: Buffer -> Either Error GifReader
 const gifReader = S.encase (buffer => new gif.GifReader (buffer));
 
-//    image :: Number -> Number -> Either Image
+//    image :: Number -> Number -> Either Error Image
 const image = height => S.encase (width => new Image (height, width));
 
-//    frameInfo :: GifReader -> Number -> Either FrameInfo
+//    frameInfo :: GifReader -> Number -> Either Error FrameInfo
 const frameInfo = gifReader => S.encase (gifReader.frameInfo.bind (gifReader));
 
-//    decodeAndBlitFrameRGBA :: GifReader -> Number -> FrameInfo -> Either Buffer
+//    decodeAndBlitFrameRGBA :: GifReader -> Number -> FrameInfo -> Either Error Buffer
 const decodeAndBlitFrameRGBA = gifReader => frameNumber => frameInfo =>
   S.encase (buffer => (gifReader.decodeAndBlitFrameRGBA (frameNumber, buffer), buffer))
     (Buffer.alloc (frameInfo.height * frameInfo.width * 4));
@@ -74,60 +76,22 @@ const decodeAndBlitFrameRGBA = gifReader => frameNumber => frameInfo =>
 //    IMPURE_addFrame :: FrameInfo -> Buffer -> Image -> Image
 const IMPURE_addFrame = frameInfo => rgbaBuffer => image => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
 
-//    getFrameInfo :: Either GifReader -> Either Number -> Either FrameInfo
-const getFrameInfo = S.compose (S.compose (S.join))
-                               (S.lift2 (frameInfo));
+//    getFrameInfo :: Either Error GifReader -> Either Error Number -> Either Error FrameInfo
+const getFrameInfo = joinAfter (S.lift2 (frameInfo));
 
-//    getRgbaBuffer :: Either GifReader -> Either Number -> Either FrameInfo -> Either Buffer
-const getRgbaBuffer = S.compose (S.compose (S.compose (S.join)))
+//    getRgbaBuffer :: Either Error GifReader -> Either Error Number -> Either Error FrameInfo -> Either Error Buffer
+const getRgbaBuffer = S.compose (joinAfter)
                                 (S.lift3 (decodeAndBlitFrameRGBA));
+//    blitBuffer :: Either Error GifReader -> Either Error Number -> Either Error Buffer
+const blitBuffer = S.lift2 (S.ap) (getRgbaBuffer) (getFrameInfo);
 
 
 /** @param {Buffer} buffer */
 function main (buffer) {
-  // //  result1 :: Right FrameInfo
-  // let result1 = getFrameInfo (gifReader (buffer)) (S.Right (0));
-  // return result1
-
-  // //  result2 :: Buffer
-  let result2 = getRgbaBuffer (gifReader (buffer))
-                              (S.Right (0))
-                              (getFrameInfo (gifReader (buffer))
-                                            (S.Right (0)));
-  // return result2
-
-  let gifReader_     = gifReader (buffer);
-  let frameNumber    = S.Right (0);
-  let getRgbaBuffer_ = getRgbaBuffer (gifReader_);
-  let getFrameInfo_  = getFrameInfo (gifReader_);
-  //  result3 :: Right Buffer
-  let result3 = S.ap (getRgbaBuffer_) (getFrameInfo_) (frameNumber);
-  // return result3
-
-  // (a -> b -> d -> c) -> (a -> b -> d) -> a -> b -> c
-  // (a -> b -> c -> d) -> (a -> b -> c) -> a -> b ->
-
-  //              (a -> b -> c -> d) -> (e -> a) -> (e -> b) -> (e -> c) -> e -> d
-  let r = S.lift3 (a => b => c => `a = ${a} b = ${b} c = ${c}`)
-                  (e => e)     // -> a
-                  (e => e + 1) // -> b
-                  (e => e + 2) // -> c
-                  (1);
-  return r
-
-  // let gifReader_  = gifReader (buffer);
-  // let frameNumber = S.Right (0);
-  // let blitBuffer  = S.ap (getRgbaBuffer) (getFrameInfo) (gifReader_);
-  //  result4 :: Right Buffer
-  // let result4 = S.ap (blitBuffer) (frameNumber);
-  // return result4;
-
-  // ap    ::
-  //          (a -> b -> c) -> f a -> f b -> f c
-  // lift2 :: (b -> c -> d) -> (a -> b) -> (a -> c) -> a -> d
-  //          (b -> c -> d -> e) -> (a -> b -> c) -> (a -> d) -> a -> e
+  //  result1 :: Either Error Buffer
+  let result1 = blitBuffer (gifReader (buffer)) (S.Right (0));
+  return S.map (shortenBuffer) (result1);
 }
-
 
 S.pipe ([ readFile, main, writeln ])
        ('./examples/doge_jump2.gif');

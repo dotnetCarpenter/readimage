@@ -15,11 +15,11 @@ decodeAndBlitFrameRGBA :: GifReader -> Number -> FrameInfo -> Either Buffer
 I have found some abstrations that I think are easier to combine (I might be mistaken):
 
 ```js
-//    getFrameInfo :: Either GifReader -> Either Number -> Either FrameInfo
+//    getFrameInfo :: Either Error GifReader -> Either Error Number -> Either Error FrameInfo
 const getFrameInfo = S.compose (S.compose (S.join))
                                (S.lift2 (frameInfo));
 
-//    getRgbaBuffer :: Either GifReader -> Either Number -> Either FrameInfo -> Either Buffer
+//    getRgbaBuffer :: Either Error GifReader -> Either Error Number -> Either Error FrameInfo -> Either Error Buffer
 const getRgbaBuffer = S.compose (S.compose (S.compose (S.join)))
                                 (S.lift3 (decodeAndBlitFrameRGBA));
 ```
@@ -52,6 +52,7 @@ I would really like to combine `getRgbaBuffer` and `getFrameInfo`, so I can call
 dream :: (a -> b -> c -> d) -> (a -> b -> c) -> f a -> f b -> f d
 dream getRgbaBuffer <?> getFrameInfo Either (GifReader) Either (Number) = Either Buffer
 ```
+
 _`<?>` = the dream combinator; its unknown magic power, combine function signatures to match up like in a dream._ 😉
 
 I have tried too many things to mention here but I am thoroughly confused at this point. I thought that I could simply `lift4 (getRgbaBuffer)` and got a `lift4` implementation but I _simply_ can not follow the flow of the program with so many parameters.
