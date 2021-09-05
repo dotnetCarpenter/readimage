@@ -8,6 +8,7 @@ const fs = require ("fs");
 
 const consoleFriendlyBuffer = buffer => buffer instanceof Buffer ? `<Buffer(${buffer.byteLength})>` : buffer;
 const writeln = (...xs) => (console.log (...xs), xs[0]);
+const trace = msg => x => (console.log (`[${msg}]`, x), x);
 
 //    unfoldr_ :: (b -> Either e (Pair a b)) -> b -> Array a
 const unfoldr_ = f => x => {
@@ -72,9 +73,10 @@ const image = height => S.encase (width => new Image (height, width));
 const frameInfo = gifReader => S.encase (gifReader.frameInfo.bind (gifReader));
 
 //    decodeAndBlitFrameRGBA :: GifReader -> Number -> FrameInfo -> Either Error Buffer
-const decodeAndBlitFrameRGBA = gifReader => frameNumber => frameInfo =>
-  S.encase (buffer => (gifReader.decodeAndBlitFrameRGBA (frameNumber, buffer), buffer))
-    (Buffer.alloc (frameInfo.height * frameInfo.width * 4));
+const decodeAndBlitFrameRGBA = gifReader => frameNumber => S.pipe ([
+  S.encase (frameInfo => Buffer.alloc (frameInfo.height * frameInfo.width * 4)),
+  S.chain (S.encase (buffer => (gifReader.decodeAndBlitFrameRGBA (frameNumber, buffer), buffer))),
+]);
 
 //    IMPURE_addFrame :: FrameInfo -> Buffer -> Image -> Image
 const IMPURE_addFrame = frameInfo => rgbaBuffer => image => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
