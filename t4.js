@@ -2,11 +2,13 @@
 
 // process.env.NODE_ENV = 'production';
 
-const S = require ("sanctuary");
+const S   = require ("sanctuary");
 const gif = require ("omggif");
-const fs = require ("fs");
+const fs  = require ("fs");
 
-const consoleFriendlyBuffer = buffer => buffer instanceof Buffer ? `<Buffer(${buffer.byteLength})>` : buffer;
+// Buffer.prototype[Symbol.for ('nodejs.util.inspect.custom')] = function () { return `<Buffer(${this.byteLength})>`; };
+Buffer.prototype.toString = function () { return `<Buffer(${this.byteLength})>`; };
+
 const writeln = (...xs) => (console.log (...xs), xs[0]);
 const trace = msg => x => (console.log (`[${msg}]`, x), x);
 
@@ -34,25 +36,25 @@ const isNumber = (
 
 function Image(height, width) {
   if (!(this instanceof Image)) {
-    return new Image(height, width)
+    return new Image(height, width);
   }
   if (!isNumber(height) || !isNumber(width)) {
-    throw new Error("Image height and width must be numbers.")
+    throw new Error("Image height and width must be numbers.");
   }
-  this.height = +height
-  this.width = +width
-  this.frames = []
+  this.height = +height;
+  this.width = +width;
+  this.frames = [];
 }
 Image.prototype.addFrame = function (rgba, delay) {
-  this.frames.push(new Frame(rgba, delay))
+  this.frames.push(new Frame(rgba, delay));
 }
 
 function Frame(rgba, delay) {
   if (!(this instanceof Frame)) {
-    return new Frame(rgba, delay)
+    return new Frame(rgba, delay);
   }
-  this.data = consoleFriendlyBuffer (rgba) // because seeing a Buffer in the terminal sucks
-  this.delay = delay
+  this.data = rgba; //consoleFriendlyBuffer (rgba) // because seeing a Buffer in the terminal sucks
+  this.delay = delay;
 }
 
 const readFile = filename => fs.readFileSync(__dirname + "/" + filename);
@@ -67,7 +69,7 @@ const joinAfter = S.compose (S.compose (S.join));
 const gifReader = S.encase (buffer => new gif.GifReader (buffer));
 
 //    image :: Number -> Number -> Either Error Image
-const image = height => S.encase (width => new Image (height, width));
+const image = S.encase (({width, height}) => new Image (height, width));
 
 //    frameInfo :: GifReader -> Number -> Either Error FrameInfo
 const frameInfo = gifReader => S.encase (gifReader.frameInfo.bind (gifReader));
@@ -78,8 +80,8 @@ const decodeAndBlitFrameRGBA = gifReader => frameNumber => S.pipe ([
   S.chain (S.encase (buffer => (gifReader.decodeAndBlitFrameRGBA (frameNumber, buffer), buffer))),
 ]);
 
-//    IMPURE_addFrame :: FrameInfo -> Buffer -> Image -> Image
-const IMPURE_addFrame = frameInfo => rgbaBuffer => image => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
+//    IMPURE_addFrame :: Image -> FrameInfo -> Buffer -> Image
+const IMPURE_addFrame = image => frameInfo => rgbaBuffer => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
 
 //    getFrameInfo :: Either Error GifReader -> Either Void Number -> Either Error FrameInfo
 const getFrameInfo = joinAfter (S.lift2 (frameInfo));
@@ -92,8 +94,25 @@ const getRgbaBuffer = S.compose (joinAfter)
 const blitFrame = S.lift2 (S.ap) (getRgbaBuffer) (getFrameInfo);
 
 
+const program1 = S.map (gifReader => {
+                         let frameNumber      = 0;
+                         let eitherImage      = image (gifReader);
+                         let eitherFrameInfo  = frameInfo (gifReader) (frameNumber);
+                         let eitherRgbaBuffer = S.pipe ([
+                                                  S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)),
+                                                  S.join,
+                                                ]) (eitherFrameInfo);
+                        //  S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)) (eitherFrameInfo);
+
+                         return S.lift3 (IMPURE_addFrame) (eitherImage) (eitherFrameInfo) (eitherRgbaBuffer);
+                       });
+
+
 /** @param {Buffer} buffer */
 function main (buffer) {
+  return program1 (gifReader (buffer));
+
+
   //    blitGifFrame :: Either Void Number -> Either Error Buffer
   const blitGifFrame = blitFrame (gifReader (buffer));
   // return S.map (consoleFriendlyBuffer) (blitGifFrame (S.Right (0)));
