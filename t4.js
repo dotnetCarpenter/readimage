@@ -2,14 +2,15 @@
 
 // process.env.NODE_ENV = 'production';
 
-const S   = require ("sanctuary");
-const gif = require ("omggif");
-const fs  = require ("fs");
+const S    = require ("sanctuary");
+const gif  = require ("omggif");
+const fs   = require ("fs");
 
-// Buffer.prototype[Symbol.for ('nodejs.util.inspect.custom')] = function () { return `<Buffer(${this.byteLength})>`; };
-Buffer.prototype.toString = function () { return `<Buffer(${this.byteLength})>`; };
+const bufferToString = function () { return `<toStringBuffer(${this.byteLength})>`; };
+Buffer.prototype[Symbol.for ('nodejs.util.inspect.custom')] = bufferToString;
+Buffer.prototype.toString = bufferToString;
 
-const writeln = (...xs) => (console.log (...xs), xs[0]);
+const writeln = x => (console.log (S.show (x)), x);
 const trace = msg => x => (console.log (`[${msg}]`, x), x);
 
 //    unfoldr_ :: (b -> Either e (Pair a b)) -> b -> Array a
@@ -69,7 +70,8 @@ const joinAfter = S.compose (S.compose (S.join));
 const gifReader = S.encase (buffer => new gif.GifReader (buffer));
 
 //    image :: Number -> Number -> Either Error Image
-const image = S.encase (({width, height}) => new Image (height, width));
+const image = S.encase (({width, height}) =>
+  new Image (height, width));
 
 //    frameInfo :: GifReader -> Number -> Either Error FrameInfo
 const frameInfo = gifReader => S.encase (gifReader.frameInfo.bind (gifReader));
@@ -81,13 +83,15 @@ const decodeAndBlitFrameRGBA = gifReader => frameNumber => S.pipe ([
 ]);
 
 //    IMPURE_addFrame :: Image -> FrameInfo -> Buffer -> Image
-const IMPURE_addFrame = image => frameInfo => rgbaBuffer => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
+const IMPURE_addFrame = image =>
+  frameInfo => rgbaBuffer => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
 
 //    getFrameInfo :: Either Error GifReader -> Either Void Number -> Either Error FrameInfo
-const getFrameInfo = joinAfter (S.lift2 (frameInfo));
+const getFrameInfo = S.compose (S.compose (S.join))
+                               (S.lift2 (frameInfo));
 
 //    getRgbaBuffer :: Either Error GifReader -> Either Void Number -> Either Error FrameInfo -> Either Error Buffer
-const getRgbaBuffer = S.compose (joinAfter)
+const getRgbaBuffer = S.compose (S.compose (S.compose (S.join)))
                                 (S.lift3 (decodeAndBlitFrameRGBA));
 
 //    blitFrame :: Either Error GifReader -> Either Void Number -> Either Error Buffer
@@ -95,22 +99,40 @@ const blitFrame = S.lift2 (S.ap) (getRgbaBuffer) (getFrameInfo);
 
 
 const program1 = S.map (gifReader => {
-                         let frameNumber      = 0;
-                         let eitherImage      = image (gifReader);
-                         let eitherFrameInfo  = frameInfo (gifReader) (frameNumber);
-                         let eitherRgbaBuffer = S.pipe ([
-                                                  S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)),
-                                                  S.join,
-                                                ]) (eitherFrameInfo);
-                        //  S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)) (eitherFrameInfo);
+  let frameNumber      = 0;
+  let eitherImage      = image (gifReader);
+  let eitherFrameInfo  = frameInfo (gifReader) (frameNumber);
+  let eitherRgbaBuffer = S.compose (S.join)
+                                  (S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)))
+                                  (eitherFrameInfo);
 
-                         return S.lift3 (IMPURE_addFrame) (eitherImage) (eitherFrameInfo) (eitherRgbaBuffer);
-                       });
+  return S.lift3 (IMPURE_addFrame) (eitherImage) (eitherFrameInfo) (eitherRgbaBuffer);
+});
 
+const program2 = eitherGifReader => {
+  let gifReader        = eitherGifReader.value;
+  let frameNumber      = 0;
+  let eitherFrameInfo  = frameInfo (gifReader) (frameNumber);
+  let eitherRgbaBuffer = S.compose (S.join)
+                                  (S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)))
+                                  (eitherFrameInfo);
+
+  let addFrame = S.pipe ([
+    S.chain (image),
+    S.lift3 (IMPURE_addFrame),
+  ]);
+
+  return addFrame (eitherGifReader) (eitherFrameInfo) (eitherRgbaBuffer);
+}
 
 /** @param {Buffer} buffer */
 function main (buffer) {
-  return program1 (gifReader (buffer));
+  return program2 (gifReader (buffer))
+  // return S.show(
+  //   S.lift3 (IMPURE_addFrame) (S.map (image) (gifReader (buffer)))
+  // );
+
+  // return program1 (gifReader (buffer));
 
 
   //    blitGifFrame :: Either Void Number -> Either Error Buffer
@@ -124,8 +146,7 @@ function main (buffer) {
   )
   (0);
 
-  // return result;
-  return S.map (consoleFriendlyBuffer) (result);
+  return result;
 }
 
 S.pipe ([ readFile, main, writeln ])
