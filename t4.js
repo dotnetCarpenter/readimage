@@ -128,12 +128,31 @@ const program2 = a => (d, lastResult) => {
   // FIXME: addFrame only keeps state when GifReader is applied...
   let result = J (STATE_addFrame) (getRgbaBuffer) (getFrameInfo) (a) (d)
   return S.isRight (result) ? program2 (a) (add1f (d), result) : lastResult
-}
+};
+
+//    J2 :: addFrame → getRgbaBuffer → getFrameInfo → GifReader → Number → Image
+//    J2 :: (c → d → e) → (a → b → c → d) → (a → b → c) → a → b → e
+const J2 = f1 => f2 => f3 => a => b => {
+  let c = f3 (a) (b);
+  let d = f2 (a) (b) (c);
+  return  f1 (c) (d);
+};
+const addFrame = eitherFrameNumber => f => image => {
+  let eitherImage = f (add1f (eitherFrameNumber))
+  if (S.isLeft (eitherImage)) return image;
+
+  return addFrame (add1f (eitherFrameNumber)) (f) (image)
+};
+const program3 = eitherGifReader => eitherFrameNumber => {
+  let addFrameToImage = STATE_addFrame (eitherGifReader);
+  let addFrame_ = J2 (addFrameToImage) (getRgbaBuffer) (getFrameInfo) (eitherGifReader);
+  return addFrame (eitherFrameNumber) (addFrame_) (addFrame_ (eitherFrameNumber));
+};
 
 /** @param {Buffer} buffer */
 function main (buffer) {
   // return program1 (gifReader (buffer));
-  return program2 (gifReader (buffer)) (S.Right (0));
+  return program3 (gifReader (buffer)) (S.Right (0));
 
   return S.join (S.add) (21)
 
