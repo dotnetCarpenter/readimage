@@ -70,8 +70,7 @@ const joinAfter = S.compose (S.compose (S.join));
 const gifReader = S.encase (buffer => new gif.GifReader (buffer));
 
 //    image :: Number -> Number -> Either Error Image
-const image = S.encase (({width, height}) =>
-  new Image (height, width));
+const image = S.encase (({width, height}) => new Image (height, width));
 
 //    frameInfo :: GifReader -> Number -> Either Error FrameInfo
 const frameInfo = gifReader => S.encase (gifReader.frameInfo.bind (gifReader));
@@ -83,8 +82,10 @@ const decodeAndBlitFrameRGBA = gifReader => frameNumber => S.pipe ([
 ]);
 
 //    IMPURE_addFrame :: Image -> FrameInfo -> Buffer -> Image
-const IMPURE_addFrame = image =>
-  frameInfo => rgbaBuffer => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
+const IMPURE_addFrame = image => frameInfo => rgbaBuffer => (image.addFrame (rgbaBuffer, frameInfo.delay * 10), image);
+
+//    STATE_addFrame :: Either Error GifReader → Either Error FrameInfo → Either Error Buffer → Either Error Image
+const STATE_addFrame = S.pipe ([S.chain (image), S.lift3 (IMPURE_addFrame)]);
 
 //    getFrameInfo :: Either Error GifReader -> Either Void Number -> Either Error FrameInfo
 const getFrameInfo = S.compose (S.compose (S.join))
@@ -103,36 +104,38 @@ const program1 = S.map (gifReader => {
   let eitherImage      = image (gifReader);
   let eitherFrameInfo  = frameInfo (gifReader) (frameNumber);
   let eitherRgbaBuffer = S.compose (S.join)
-                                  (S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)))
-                                  (eitherFrameInfo);
+                                   (S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)))
+                                   (eitherFrameInfo);
 
   return S.lift3 (IMPURE_addFrame) (eitherImage) (eitherFrameInfo) (eitherRgbaBuffer);
 });
 
-const program2 = eitherGifReader => {
-  let gifReader        = eitherGifReader.value;
-  let frameNumber      = 0;
-  let eitherFrameInfo  = frameInfo (gifReader) (frameNumber);
-  let eitherRgbaBuffer = S.compose (S.join)
-                                  (S.map (decodeAndBlitFrameRGBA (gifReader) (frameNumber)))
-                                  (eitherFrameInfo);
-
-  let addFrame = S.pipe ([
-    S.chain (image),
-    S.lift3 (IMPURE_addFrame),
-  ]);
-
-  return addFrame (eitherGifReader) (eitherFrameInfo) (eitherRgbaBuffer);
+//    J :: (a → b → c → e) → (a → d → b → c) → (a → d → b) → a → d → e
+const J = f1 => f2 => f3 => a => d => {
+  let b = f3 (a) (d);
+  let c = f2 (a) (d) (b);
+  return  f1 (a) (b) (c);
+}
+//    add1f :: Functor a => a Number -> a Number
+const add1f = S.map (S.add (1))
+//    program2 :: Either Error GifReader -> Either Void Number -> Either Error Image
+const program2 = a => (d, lastResult) => {
+  // a = GifReader
+  // b = FrameInfo
+  // c = Buffer
+  // d = Number
+  // e = Image
+  // FIXME: addFrame only keeps state when GifReader is applied...
+  let result = J (STATE_addFrame) (getRgbaBuffer) (getFrameInfo) (a) (d)
+  return S.isRight (result) ? program2 (a) (add1f (d), result) : lastResult
 }
 
 /** @param {Buffer} buffer */
 function main (buffer) {
-  return program2 (gifReader (buffer))
-  // return S.show(
-  //   S.lift3 (IMPURE_addFrame) (S.map (image) (gifReader (buffer)))
-  // );
-
   // return program1 (gifReader (buffer));
+  return program2 (gifReader (buffer)) (S.Right (0));
+
+  return S.join (S.add) (21)
 
 
   //    blitGifFrame :: Either Void Number -> Either Error Buffer
